@@ -91,6 +91,14 @@ def main():
         
         # 台帳を更新
         if updated:
+            # 期限切れのエントリを削除
+            ledger_df = ledger_df[ledger_df['status'] != 'expired']
+            
+            # 台帳の内容をログ出力
+            print("台帳に書き込む内容:")
+            for index, row in ledger_df.iterrows():
+                print(f"  {row['team_name']}, {row['username']}, {row['end_date']}, {row['status']}")
+            
             ledger_df.to_csv(ledger_file, index=False)
             print(f"台帳が更新されました: {ledger_file}")
                 

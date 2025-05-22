@@ -79,21 +79,23 @@ def main():
                     if len(row) != 3:
                         print(f"エラー: 無効な行形式です: {row}")
                         continue
-                
-                team_name = row[0].strip()
-                username = row[1].strip()
-                end_date_str = row[2].strip()
-                
-                # 日付の検証
-                if not validate_date(end_date_str):
-                    continue
-                
-                new_requests.append({
-                    'team_name': team_name,
-                    'username': username,
-                    'end_date': end_date_str,
-                    'status': 'pending'
-                })
+                    
+                    team_name = row[0].strip()
+                    username = row[1].strip()
+                    end_date_str = row[2].strip()
+                    
+                    # 日付の検証
+                    if not validate_date(end_date_str):
+                        continue
+                    
+                    new_requests.append({
+                        'team_name': team_name,
+                        'username': username,
+                        'end_date': end_date_str,
+                        'status': 'pending'
+                    })
+        except Exception as e:
+            print(f"エラー: request.csvの読み込みに失敗しました: {str(e)}")
         
         # 新規申請を処理
         for request in new_requests:
@@ -151,12 +153,13 @@ def main():
                 # 新しいエントリを追加
                 ledger_df = pd.concat([ledger_df, pd.DataFrame([request])], ignore_index=True)
         
+        # 台帳の内容をログ出力
+        print("台帳に書き込む内容:")
+        for index, row in ledger_df.iterrows():
+            print(f"  {row['team_name']}, {row['username']}, {row['end_date']}, {row['status']}")
+        
         # 台帳を保存
         ledger_df.to_csv(ledger_file, index=False)
-        
-        # request.csvをクリア
-        with open('request.csv', 'w') as f:
-            pass
         
         print(f"台帳が更新されました: {ledger_file}")
                 
