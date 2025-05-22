@@ -30,5 +30,50 @@ jobs:
           GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         id: add-permissions
         run: |
-          python .github/scripts/add_permissions.py > output.txt
-          echo "result=$(cat output.txt)" >> $GITHUB_OUTPUT
+          python .github/scripts/add_permissions.py | tee output_log.txt
+          
+      - name: 結果を保存
+        run: |
+          grep "^成功\|^エラー" output_log.txt > output_summary.txt || true
+          
+      - name: 結果を通知
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let result = '';
+            try {
+              result = fs.readFileSync('output_summary.txt', 'utf8');
+            } catch (error) {
+              result = '処理結果の取得に失敗しました。ログを確認してください。';
+            }
+            
+            const commit = context.payload.head_commit;
+            let committer = '';
+            if (commit) {
+              committer = commit.committer.username;
+            }
+            
+            const issueComment = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number || (await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha
+              })).data[0]?.number,
+              body: `## 権限付与の結果\n\n\`\`\`\n${result}\n\`\`\`\n\n@${committer}`
+            };
+            
+            if (issueComment.issue_number) {
+              github.rest.issues.createComment(issueComment);
+            } else {
+              github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: `## 権限付与の結果\n\n\`\`\`\n${result}\n\`\`\`\n\n@${committer}`
+              });
+            }
