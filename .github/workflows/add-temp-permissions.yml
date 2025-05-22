@@ -35,3 +35,13 @@ jobs:
       - name: 結果を保存
         run: |
           grep "^成功\|^エラー" output_log.txt > output_summary.txt || true
+          
+      - name: 結果をリポジトリに保存
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          cp output_log.txt execution_log.txt
+          cp output_summary.txt execution_summary.txt
+          git add execution_log.txt execution_summary.txt
+          git commit -m "権限付与の実行結果を更新 [skip ci]" || echo "変更なし"
+          git push
