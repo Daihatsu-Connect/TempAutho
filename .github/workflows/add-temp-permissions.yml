@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'request.csv'
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   add-permissions:
