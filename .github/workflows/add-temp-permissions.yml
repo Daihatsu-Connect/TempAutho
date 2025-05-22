@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.ADMIN_TOKEN }}
 
       - name: Pythonをセットアップ
         uses: actions/setup-python@v4
@@ -38,12 +36,11 @@ jobs:
         run: |
           grep "^成功\|^エラー" output_log.txt > output_summary.txt || true
           
-      - name: 結果をリポジトリに保存
-        run: |
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
-          cp output_log.txt execution_log.txt
-          cp output_summary.txt execution_summary.txt
-          git add execution_log.txt execution_summary.txt
-          git commit -m "権限付与の実行結果を更新 [skip ci]" || echo "変更なし"
-          git push origin HEAD:main
+      - name: 結果をアーティファクトとして保存
+        uses: actions/upload-artifact@v3
+        with:
+          name: execution-results
+          path: |
+            output_log.txt
+            output_summary.txt
+          retention-days: 90
