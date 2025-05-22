@@ -64,21 +64,36 @@ def main():
                 
                 try:
                     # チームが存在するか確認
+                    print(f"チーム '{team_name}' を検索中...")
                     team = org.get_team_by_slug(team_name)
+                    print(f"チーム '{team_name}' が見つかりました。")
+                    print(f"チームURL: https://github.com/orgs/{org_name}/teams/{team_name}")
+                    print(f"チームID: {team.id}")
                     
                     # ユーザーが存在するか確認
                     try:
+                        print(f"ユーザー '{username}' を検索中...")
                         user = g.get_user(username)
+                        print(f"ユーザー '{username}' が見つかりました。ID: {user.id}")
                     except UnknownObjectException:
                         print(f"エラー: ユーザー '{username}' が見つかりません。")
                         continue
                     
                     # ユーザーをチームに追加
-                    team.add_membership(user)
-                    print(f"成功: ユーザー '{username}' をチーム '{team_name}' に追加しました。終了日: {end_date_str}")
+                    print(f"ユーザー '{username}' をチーム '{team_name}' に追加しています...")
+                    try:
+                        team.add_membership(user)
+                        print(f"成功: ユーザー '{username}' をチーム '{team_name}' に追加しました。終了日: {end_date_str}")
+                    except Exception as e:
+                        print(f"エラー: ユーザー '{username}' をチーム '{team_name}' に追加できませんでした。")
+                        print(f"エラー詳細: {str(e)}")
                     
                 except UnknownObjectException:
                     print(f"エラー: チーム '{team_name}' が見つかりません。")
+                    # 組織内の全チームを表示
+                    print("組織内の利用可能なチーム一覧:")
+                    for t in org.get_teams():
+                        print(f"- {t.name} (slug: {t.slug})")
                     continue
                 
     except Exception as e:

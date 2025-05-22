@@ -10,7 +10,7 @@
 ```csv
 request/{連番}
 ```
-2. request.csv に以下のフォーマットで申請内容を記載する。
+2. request.csv に以下の例を参考にし、申請内容を記載する。
 ```csv
 24pf-jp-dmc-dev-member, dmc-tdaihatsu, 20250505
 24pf-jp-dmc-pf-member, tpd-abcdef, 20250506
