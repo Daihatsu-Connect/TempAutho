@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'request.csv'
+    workflow_dispatch:
 
 jobs:
   add-permissions:
@@ -13,9 +14,6 @@ jobs:
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
-
-      - name: GitHub CLIをセットアップ
-        uses: cli/cli-action@v1
 
       - name: Pythonをセットアップ
         uses: actions/setup-python@v4
