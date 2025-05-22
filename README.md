@@ -1,6 +1,10 @@
 # 用途
 一時的なgithubの権限を申請する。
 
+# 前提条件
+- 申請者ならびに対象者はOrganization(Daihatsu-Connect)に所属していること。
+- 追加先のteam名がOrganization(Daihatsu-Connect)に存在すること。
+
 # 使い方
 1. ブランチをきる。以下命名規則。
 ```csv
