@@ -49,24 +49,36 @@ def main():
         
         # 台帳ファイルの存在確認
         ledger_file = 'permissions_ledger.csv'
-        if not os.path.exists(ledger_file):
-            # 台帳ファイルが存在しない場合は作成
+        if not os.path.exists(ledger_file) or os.path.getsize(ledger_file) == 0:
+            # 台帳ファイルが存在しない、または空の場合は新規作成
             with open(ledger_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['team_name', 'username', 'end_date', 'status'])
             ledger_df = pd.DataFrame(columns=['team_name', 'username', 'end_date', 'status'])
         else:
-            # 台帳を読み込む
-            ledger_df = pd.read_csv(ledger_file)
+            try:
+                # 台帳を読み込む
+                ledger_df = pd.read_csv(ledger_file)
+                # カラムが存在するか確認
+                if ledger_df.empty or 'team_name' not in ledger_df.columns:
+                    print("警告: 台帳ファイルの形式が正しくありません。新しい台帳を作成します。")
+                    ledger_df = pd.DataFrame(columns=['team_name', 'username', 'end_date', 'status'])
+            except Exception as e:
+                print(f"警告: 台帳ファイルの読み込みに失敗しました: {str(e)}")
+                print("新しい台帳を作成します。")
+                ledger_df = pd.DataFrame(columns=['team_name', 'username', 'end_date', 'status'])
         
         # 新規申請を読み込む
         new_requests = []
-        with open('request.csv', 'r') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if len(row) != 3:
-                    print(f"エラー: 無効な行形式です: {row}")
-                    continue
+        try:
+            with open('request.csv', 'r') as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    if not row or len(row) == 0:
+                        continue
+                    if len(row) != 3:
+                        print(f"エラー: 無効な行形式です: {row}")
+                        continue
                 
                 team_name = row[0].strip()
                 username = row[1].strip()
