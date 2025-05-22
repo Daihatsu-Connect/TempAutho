@@ -33,7 +33,7 @@ jobs:
           grep "^削除\|^エラー" remove_log.txt > remove_summary.txt || true
           
       - name: 結果をアーティファクトとして保存
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: removal-results
           path: |

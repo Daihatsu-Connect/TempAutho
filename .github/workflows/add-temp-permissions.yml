@@ -37,7 +37,7 @@ jobs:
           grep "^成功\|^エラー" output_log.txt > output_summary.txt || true
           
       - name: 結果をアーティファクトとして保存
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: execution-results
           path: |
