@@ -1,0 +1,42 @@
+name: 期限切れ権限の削除
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日午前0時に実行
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  remove-permissions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 必要なパッケージをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas PyGithub python-dateutil
+
+      - name: 期限切れ権限を削除
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          python .github/scripts/remove_expired_permissions.py | tee remove_log.txt
+          
+      - name: 結果を保存
+        run: |
+          grep "^削除\|^エラー" remove_log.txt > remove_summary.txt || true
+          
+      - name: 結果をアーティファクトとして保存
+        uses: actions/upload-artifact@v3
+        with:
+          name: removal-results
+          path: |
+            remove_log.txt
+            remove_summary.txt
+          retention-days: 90
