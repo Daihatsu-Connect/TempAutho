@@ -27,13 +27,12 @@ GitHub Actionsの「Actions」タブから「一時的な権限付与」ワー�
 # 権限管理の仕組み
 1. 申請内容は `request.csv` に記載されます
 2. 権限付与アクションが実行されると、申請内容が処理され `permissions_ledger.csv` に記録されます
-3. 処理後、`request.csv` はクリアされます
-4. 毎日午前0時に期限切れ権限削除アクションが実行され、期限切れの権限が自動的に削除されます
-5. 削除されたエントリは台帳上で「expired」とマークされます
+3. 毎日午前0時に期限切れ権限削除アクションが実行され、期限切れの権限が自動的に削除されます
+4. 削除されたエントリは台帳から完全に削除されます
 
 # 台帳ファイル
 `permissions_ledger.csv` には以下の情報が記録されます：
 - team_name: チーム名
 - username: ユーザー名
 - end_date: 終了日
-- status: ステータス（pending, active, error, expired）
+- status: ステータス（pending, active, error）

@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.ADMIN_TOKEN }}
 
       - name: Pythonをセットアップ
         uses: actions/setup-python@v4
@@ -40,3 +42,11 @@ jobs:
             remove_log.txt
             remove_summary.txt
           retention-days: 90
+          
+      - name: 台帳をリポジトリにコミット
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add permissions_ledger.csv
+          git commit -m "期限切れ権限を削除 [skip ci]" || echo "変更なし"
+          git push origin HEAD:main
