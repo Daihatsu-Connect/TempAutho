@@ -60,13 +60,13 @@ jobs:
       - name: Issueにコメント
         if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "## PRを作成しました ✅\n\n承認されるまでお待ちください。\n\nPR: ${{ steps.create-pr.outputs.pr_url }}"
+          gh issue comment "${{ github.event.issue.number }}" --body "## PRを作成しました ✅承認されるまでお待ちください。PR: ${{ steps.create-pr.outputs.pr_url }}"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: エラー時の処理
         if: failure()
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。\n\n以下を確認してください：\n1. Issue本文が正しいCSV形式で記載されているか\n2. チーム名とユーザー名が正しいか\n3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
+          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。次を確認してください：1. Issue本文が正しいCSV形式で記載されているか?2. チーム名とユーザー名が正しいか?3. 終了日が正しい形式（YYYYMMDD）で記載されているか?"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
