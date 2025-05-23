@@ -31,15 +31,22 @@ jobs:
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
           git checkout -b "$BRANCH_NAME"
+          
+          # 既存のrequest.csvを削除（存在する場合）
+          rm -f request.csv
+          
+          # Issue本文をrequest.csvに保存
           echo "${{ github.event.issue.body }}" > request.csv
-          git add request.csv
-          if git commit -m "権限申請を追加 (Issue #$ISSUE_NUMBER)"; then
-            git push origin "$BRANCH_NAME"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
+          
+          # 変更を強制的に追加
+          git add -f request.csv
+          
+          # 空のコミットも許可してコミット
+          git commit -m "権限申請を追加 (Issue #$ISSUE_NUMBER)" --allow-empty || true
+          
+          # プッシュ
+          git push origin "$BRANCH_NAME"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
         
       - name: PRを作成
         id: create-pr
