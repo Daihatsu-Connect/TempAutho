@@ -58,10 +58,20 @@ jobs:
           git config --global user.email 'actions@github.com'
           git checkout -b "$BRANCH_NAME"
           
+          # 既存のrequest.csvを削除（存在する場合）
+          rm -f request.csv
+          
           # Issue本文をrequest.csvに保存
           echo "${{ github.event.issue.body }}" > request.csv
           
-          git add request.csv
+          # 変更があるか確認
+          if git diff --quiet; then
+            echo "変更がありません。request.csvを強制的に追加します。"
+            git add -f request.csv
+          else
+            git add request.csv
+          fi
+          
           git commit -m "権限申請を追加 (Issue #${{ github.event.issue.number }})"
           git push origin "$BRANCH_NAME"
         
