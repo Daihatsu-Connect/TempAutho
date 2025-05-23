@@ -102,16 +102,6 @@ jobs:
           fi
           
           # Issueにコメント
-          cat << EOF > comment.md
-## 権限付与が完了しました ✅
-
-### 処理結果:
-\`\`\`
-$RESULT
-\`\`\`
-
-権限が正常に付与されました。
-EOF
-          gh issue comment "$ISSUE_NUMBER" --body-file comment.md
+          gh issue comment "$ISSUE_NUMBER" --body "## 権限付与が完了しました ✅処理結果:$RESULT 権限が正常に付与されました。"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
