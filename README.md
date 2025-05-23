@@ -6,17 +6,30 @@
 - 追加先のteam名がOrganization(Daihatsu-Connect)に存在すること。
 
 # 使い方
+
+## 方法1: Issueから申請する（推奨）
+1. 以下の形式でIssueを作成する
+   - タイトル: `request/{連番}` (例: `request/1`)
+   - 本文: 申請内容を以下のフォーマットで記載
+     ```csv
+     24pf-jp-dmc-dev-member, dmc-tdaihatsu, 20250505
+     24pf-jp-dmc-pf-member, tpd-abcdef, 20250506
+     ```
+2. Issueを作成すると自動的にブランチとPRが作成される
+3. PRが承認されマージされると権限が付与される
+
+## 方法2: 手動で申請する
 1. ブランチをきる。以下命名規則。
-```csv
-request/{連番}
-```
+   ```csv
+   request/{連番}
+   ```
 2. request.csv に以下のフォーマットで申請内容を記載する。
-```csv
-24pf-jp-dmc-dev-member, dmc-tdaihatsu, 20250505
-24pf-jp-dmc-pf-member, tpd-abcdef, 20250506
-```
-- 左から、追加希望のteam名, アカウント名, 終了日(一週間以内)
-- 上書きする。複数行可能。
+   ```csv
+   24pf-jp-dmc-dev-member, dmc-tdaihatsu, 20250505
+   24pf-jp-dmc-pf-member, tpd-abcdef, 20250506
+   ```
+   - 左から、追加希望のteam名, アカウント名, 終了日(一週間以内)
+   - 上書きする。複数行可能。
 3. mainにPRを出す。
 4. 承認後、PRをマージする。
 5. 反映される。

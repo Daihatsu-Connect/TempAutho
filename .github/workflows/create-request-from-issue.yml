@@ -1,0 +1,87 @@
+name: Issueからの権限申請
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-request:
+    # タイトルが「request/」で始まる場合のみ実行
+    if: startsWith(github.event.issue.title, 'request/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.ADMIN_TOKEN }}
+          fetch-depth: 0  # すべての履歴を取得
+
+      - name: ブランチ名を検証
+        id: validate-branch
+        run: |
+          BRANCH_NAME="${{ github.event.issue.title }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          
+          # ブランチ名が正しい形式かチェック
+          if [[ ! $BRANCH_NAME =~ ^request/[0-9]+$ ]]; then
+            echo "エラー: ブランチ名は 'request/{連番}' の形式である必要があります。"
+            echo "::error::ブランチ名は 'request/{連番}' の形式である必要があります。"
+            gh issue comment "$ISSUE_NUMBER" --body "エラー: ブランチ名は 'request/{連番}' の形式である必要があります。"
+            exit 1
+          fi
+          
+          # 既存のブランチと重複していないかチェック
+          if git show-ref --verify --quiet "refs/remotes/origin/${BRANCH_NAME}"; then
+            echo "エラー: ブランチ '${BRANCH_NAME}' は既に存在します。"
+            echo "::error::ブランチ '${BRANCH_NAME}' は既に存在します。"
+            gh issue comment "$ISSUE_NUMBER" --body "エラー: ブランチ '${BRANCH_NAME}' は既に存在します。別の連番を使用してください。"
+            exit 1
+          fi
+          
+          # Issue本文が空でないかチェック
+          if [ -z "$ISSUE_BODY" ]; then
+            echo "エラー: Issue本文が空です。申請内容を記載してください。"
+            echo "::error::Issue本文が空です。申請内容を記載してください。"
+            gh issue comment "$ISSUE_NUMBER" --body "エラー: Issue本文が空です。申請内容を記載してください。"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ブランチを作成
+        run: |
+          BRANCH_NAME="${{ steps.validate-branch.outputs.branch_name }}"
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git checkout -b "$BRANCH_NAME"
+          
+          # Issue本文をrequest.csvに保存
+          echo "${{ github.event.issue.body }}" > request.csv
+          
+          git add request.csv
+          git commit -m "権限申請を追加 (Issue #${{ github.event.issue.number }})"
+          git push origin "$BRANCH_NAME"
+        
+      - name: PRを作成
+        id: create-pr
+        run: |
+          PR_URL=$(gh pr create --base main --head "${{ steps.validate-branch.outputs.branch_name }}" --title "権限申請 (Issue #${{ github.event.issue.number }})" --body "Issue #${{ github.event.issue.number }} からの権限申請")
+          echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          
+      - name: Issueにコメント
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --body "✅ 権限申請のPRを作成しました: ${{ steps.create-pr.outputs.pr_url }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: エラー時の処理
+        if: failure()
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。ログを確認してください。"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
