@@ -54,3 +54,35 @@ jobs:
           git add permissions_ledger.csv
           git commit -m "台帳を更新 [skip ci]" || echo "変更なし"
           git push origin HEAD:main
+          
+      - name: PRの元のIssue番号を取得
+        id: get-issue
+        run: |
+          # 最新のコミットメッセージを取得
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          
+          # Issue番号を抽出（"Issue #123"の形式を想定）
+          if [[ $COMMIT_MSG =~ Issue\ #([0-9]+) ]]; then
+            ISSUE_NUMBER=${BASH_REMATCH[1]}
+            echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            echo "Issue番号を検出: $ISSUE_NUMBER"
+          else
+            echo "Issue番号が見つかりませんでした"
+          fi
+          
+      - name: 権限付与結果をIssueに通知
+        if: steps.get-issue.outputs.issue_number != ''
+        run: |
+          ISSUE_NUMBER="${{ steps.get-issue.outputs.issue_number }}"
+          
+          # 結果の要約を取得
+          if [ -f "output_summary.txt" ]; then
+            RESULT=$(cat output_summary.txt)
+          else
+            RESULT="結果の詳細が見つかりません"
+          fi
+          
+          # Issueにコメント
+          gh issue comment "$ISSUE_NUMBER" --body "## 権限付与が完了しました ✅\n\n### 処理結果:\n\`\`\`\n$RESULT\n\`\`\`\n\n権限が正常に付与されました。"
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
