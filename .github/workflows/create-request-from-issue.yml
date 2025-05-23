@@ -6,8 +6,6 @@ on:
 
 jobs:
   create-request:
-    # タイトルが「request/」で始まる場合のみ実行
-    if: startsWith(github.event.issue.title, 'request/')
     runs-on: ubuntu-latest
     steps:
       - name: リポジトリをチェックアウト
@@ -16,44 +14,23 @@ jobs:
           token: ${{ secrets.ADMIN_TOKEN }}
           fetch-depth: 0  # すべての履歴を取得
 
-      - name: ブランチ名を検証
-        id: validate-branch
+      - name: ブランチ名を生成
+        id: generate-branch
         run: |
-          BRANCH_NAME="${{ github.event.issue.title }}"
-          ISSUE_NUMBER="${{ github.event.issue.number }}"
-          ISSUE_BODY="${{ github.event.issue.body }}"
-          
-          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          
-          # ブランチ名が正しい形式かチェック
-          if [[ ! $BRANCH_NAME =~ ^request/[0-9]+$ ]]; then
-            echo "エラー: ブランチ名は 'request/{連番}' の形式である必要があります。"
-            echo "::error::ブランチ名は 'request/{連番}' の形式である必要があります。"
-            gh issue comment "$ISSUE_NUMBER" --body "エラー: ブランチ名は 'request/{連番}' の形式である必要があります。"
-            exit 1
-          fi
-          
-          # 既存のブランチと重複していないかチェック
-          if git show-ref --verify --quiet "refs/remotes/origin/${BRANCH_NAME}"; then
-            echo "エラー: ブランチ '${BRANCH_NAME}' は既に存在します。"
-            echo "::error::ブランチ '${BRANCH_NAME}' は既に存在します。"
-            gh issue comment "$ISSUE_NUMBER" --body "エラー: ブランチ '${BRANCH_NAME}' は既に存在します。別の連番を使用してください。"
-            exit 1
-          fi
-          
-          # Issue本文が空でないかチェック
-          if [ -z "$ISSUE_BODY" ]; then
-            echo "エラー: Issue本文が空です。申請内容を記載してください。"
-            echo "::error::Issue本文が空です。申請内容を記載してください。"
-            gh issue comment "$ISSUE_NUMBER" --body "エラー: Issue本文が空です。申請内容を記載してください。"
-            exit 1
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          # 既存のブランチから最大の番号を取得
+          LAST_NUM=$(git branch -r | grep 'origin/request/' | sed 's/.*request\///' | sort -n | tail -n 1 || echo "0")
+          # 次の番号を計算
+          NEXT_NUM=$((LAST_NUM + 1))
+          # ブランチ名を生成
+          BRANCH_NAME="request/$NEXT_NUM"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "新しいブランチ名: $BRANCH_NAME"
 
       - name: ブランチを作成
+        id: create-branch
         run: |
-          BRANCH_NAME="${{ steps.validate-branch.outputs.branch_name }}"
+          BRANCH_NAME="${{ steps.generate-branch.outputs.branch_name }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
           git checkout -b "$BRANCH_NAME"
@@ -63,35 +40,46 @@ jobs:
           
           # ファイルを追加してコミット
           git add request.csv
-          git commit -m "権限申請を追加 (Issue #${{ github.event.issue.number }})" || echo "コミットするものがありません"
-          
-          # コミットが成功したかどうかを確認
-          if git rev-parse --verify HEAD >/dev/null 2>&1; then
-            # コミットが存在する場合はプッシュ
+          if git commit -m "権限申請を追加 (Issue #$ISSUE_NUMBER)"; then
+            echo "コミットが成功しました"
             git push origin "$BRANCH_NAME"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
           else
-            # コミットが存在しない場合は空のコミットを作成
-            git commit --allow-empty -m "権限申請を追加 (Issue #${{ github.event.issue.number }})"
-            git push origin "$BRANCH_NAME"
+            echo "エラー: コミットに失敗しました。変更がないか、他の問題があります。"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 1
           fi
         
       - name: PRを作成
         id: create-pr
+        if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          PR_URL=$(gh pr create --base main --head "${{ steps.validate-branch.outputs.branch_name }}" --title "権限申請 (Issue #${{ github.event.issue.number }})" --body "Issue #${{ github.event.issue.number }} からの権限申請")
+          PR_URL=$(gh pr create --base main --head "${{ steps.generate-branch.outputs.branch_name }}" --title "権限申請 (Issue #${{ github.event.issue.number }})" --body "Issue #${{ github.event.issue.number }} からの権限申請")
           echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: Issueにコメント
+        if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "✅ 権限申請のPRを作成しました: ${{ steps.create-pr.outputs.pr_url }}"
+          COMMENT="## PRを作成しました ✅
+
+承認されるまでお待ちください。
+
+PR: ${{ steps.create-pr.outputs.pr_url }}"
+          gh issue comment "${{ github.event.issue.number }}" --body "$COMMENT"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: エラー時の処理
         if: failure()
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。ログを確認してください。"
+          COMMENT="❌ 権限申請の処理中にエラーが発生しました。
+
+以下を確認してください：
+1. Issue本文が正しいCSV形式で記載されているか
+2. チーム名とユーザー名が正しいか
+3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
+          gh issue comment "${{ github.event.issue.number }}" --body "$COMMENT"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}

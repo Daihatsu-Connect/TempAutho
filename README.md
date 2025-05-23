@@ -9,7 +9,7 @@
 
 ## 方法1: Issueから申請する（推奨）
 1. 以下の形式でIssueを作成する
-   - タイトル: `request/{連番}` (例: `request/1`)
+   - タイトル: 任意（例: 「権限申請」）
    - 本文: 申請内容を以下のフォーマットで記載
      ```csv
      24pf-jp-dmc-dev-member, dmc-tdaihatsu, 20250505
