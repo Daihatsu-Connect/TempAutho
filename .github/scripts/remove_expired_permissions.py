@@ -46,7 +46,9 @@ def main():
             end_date_str = row['end_date']
             
             try:
-                # 終了日を解析
+                # 終了日を解析（整数の場合は文字列に変換）
+                if isinstance(end_date_str, int):
+                    end_date_str = str(end_date_str)
                 end_date = parser.parse(end_date_str)
                 
                 # 終了日が今日以前かチェック

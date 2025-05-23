@@ -13,6 +13,9 @@ from github.GithubException import UnknownObjectException
 def validate_date(date_str):
     """日付が有効かつ一週間以内かを確認する"""
     try:
+        # 整数の場合は文字列に変換
+        if isinstance(date_str, int):
+            date_str = str(date_str)
         end_date = parser.parse(date_str)
         today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         max_date = today + datetime.timedelta(days=7)
