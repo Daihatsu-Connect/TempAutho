@@ -49,12 +49,13 @@ jobs:
         run: |
           python .github/scripts/validate_request.py
           if [ $? -ne 0 ]; then
-            gh issue comment "${{ github.event.issue.number }}" --body "❌ 申請内容の検証に失敗しました。ログを確認してください。"
+            ERROR_MSG="❌ 申請内容の検証に失敗しました。ログを確認してください。"
+            gh issue comment "${{ github.event.issue.number }}" --body "$ERROR_MSG"
             exit 1
           fi
         env:
           GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}  # 検証には管理者権限が必要
-          GITHUB_TOKEN: ${{ github.token }}     # コメントにはGitHub Actionsトークンを使用
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}  # コメントにも管理者権限を使用
 
       - name: ブランチを作成
         id: create-branch
@@ -90,13 +91,25 @@ jobs:
       - name: Issueにコメント
         if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "## PRを作成しました ✅承認されるまでお待ちください。PR: ${{ steps.create-pr.outputs.pr_url }}"
+          SUCCESS_MSG="## PRを作成しました ✅
+          
+          承認されるまでお待ちください。
+          
+          PR: ${{ steps.create-pr.outputs.pr_url }}"
+          
+          gh issue comment "${{ github.event.issue.number }}" --body "$SUCCESS_MSG"
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: エラー時の処理
         if: failure()
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。次の間違いが無いかを確認し、issueを新規作成してください。：✅1.issue本文が正しいcsv形式で記されているか"チーム名, ユーザー名, 終了日" ✅2. チーム名とユーザー名が正しいか✅3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
+          ERROR_MSG="❌ 権限申請の処理中にエラーが発生しました。次の間違いが無いかを確認し、issueを新規作成してください。：
+          
+          ✅ 1. issue本文が正しいcsv形式で記されているか「チーム名, ユーザー名, 終了日」
+          ✅ 2. チーム名とユーザー名が正しいか
+          ✅ 3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
+          
+          gh issue comment "${{ github.event.issue.number }}" --body "$ERROR_MSG"
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
