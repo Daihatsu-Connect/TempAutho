@@ -9,6 +9,7 @@ permissions:
   contents: write    # リポジトリの内容を変更する権限
   pull-requests: write  # PRを作成する権限
   issues: write      # Issueにコメントする権限
+  id-token: write       # IDトークンを使用する権限
 
 jobs:
   create-request:
@@ -84,7 +85,7 @@ jobs:
           PR_URL=$(gh pr create --base main --head "${{ steps.generate-branch.outputs.branch_name }}" --title "権限申請 (Issue #${{ github.event.issue.number }})" --body "Issue #${{ github.event.issue.number }} からの権限申請")
           echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: Issueにコメント
         if: steps.create-branch.outputs.has_changes == 'true'
