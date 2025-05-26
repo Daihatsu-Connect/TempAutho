@@ -1,21 +1,28 @@
 name: 一時的な権限付与
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'request.csv'
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
 
 jobs:
   add-permissions:
     runs-on: ubuntu-latest
+    # PRが承認された場合のみ実行
+    if: github.event.review.state == 'approved' && startsWith(github.event.pull_request.head.ref, 'request/')
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.ADMIN_TOKEN }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: PRをマージ
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          gh pr merge $PR_NUMBER --merge --delete-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
 
       - name: Pythonをセットアップ
         uses: actions/setup-python@v4
@@ -55,53 +62,31 @@ jobs:
           git commit -m "台帳を更新 [skip ci]" || echo "変更なし"
           git push origin HEAD:main
           
-      - name: PRの元のIssue番号を取得
-        id: get-issue
+      - name: Issueに通知
         run: |
-          # request.csvの内容を取得
-          REQUEST_CONTENT=$(cat request.csv)
-          
-          # 直近のPRを取得
-          PR_INFO=$(gh pr list --state merged --limit 1 --json number,title,body --jq '.[0]')
-          
-          # PRのタイトルとボディを取得
-          PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
-          PR_BODY=$(echo "$PR_INFO" | jq -r '.body')
-          
-          echo "PR タイトル: $PR_TITLE"
-          echo "PR 本文: $PR_BODY"
-          
-          # タイトルからIssue番号を抽出（"Issue #123"の形式を想定）
-          if [[ $PR_TITLE =~ Issue\ #([0-9]+) ]]; then
+          # PRの本文からIssue番号を抽出
+          PR_BODY="${{ github.event.pull_request.body }}"
+          if [[ $PR_BODY =~ Issue\ #([0-9]+) ]]; then
             ISSUE_NUMBER=${BASH_REMATCH[1]}
-            echo "タイトルからIssue番号を検出: $ISSUE_NUMBER"
-            echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-          # 本文からIssue番号を抽出（"Issue #123"の形式を想定）
-          elif [[ $PR_BODY =~ Issue\ #([0-9]+) ]]; then
-            ISSUE_NUMBER=${BASH_REMATCH[1]}
-            echo "本文からIssue番号を検出: $ISSUE_NUMBER"
-            echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-          else
-            echo "Issue番号が見つかりませんでした"
-            # 固定のIssueに通知する場合はここでデフォルト値を設定
-            # echo "issue_number=1" >> $GITHUB_OUTPUT
+            
+            # 結果の要約を取得
+            if [ -f "output_summary.txt" ]; then
+              RESULT=$(cat output_summary.txt)
+            else
+              RESULT="結果の詳細が見つかりません"
+            fi
+            
+            # Issueにコメント
+            SUCCESS_MSG="## 権限付与が完了しました ✅
+            
+            ### 処理結果:
+            \`\`\`
+            $RESULT
+            \`\`\`
+            
+            権限が正常に付与されました。"
+            
+            gh issue comment "$ISSUE_NUMBER" --body "$SUCCESS_MSG"
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-          
-      - name: 権限付与結果をIssueに通知
-        if: steps.get-issue.outputs.issue_number != ''
-        run: |
-          ISSUE_NUMBER="${{ steps.get-issue.outputs.issue_number }}"
-          
-          # 結果の要約を取得
-          if [ -f "output_summary.txt" ]; then
-            RESULT=$(cat output_summary.txt)
-          else
-            RESULT="結果の詳細が見つかりません"
-          fi
-          
-          # Issueにコメント
-          gh issue comment "$ISSUE_NUMBER" --body "## 権限付与が完了しました ✅処理結果:$RESULT 権限が正常に付与されました。"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
