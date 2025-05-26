@@ -11,7 +11,7 @@ jobs:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.ADMIN_TOKEN }}
+          token: ${{ github.token }}
           fetch-depth: 0
 
       - name: ブランチ名を生成
@@ -46,8 +46,8 @@ jobs:
             exit 1
           fi
         env:
-          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: ブランチを作成
         id: create-branch
@@ -78,18 +78,18 @@ jobs:
           PR_URL=$(gh pr create --base main --head "${{ steps.generate-branch.outputs.branch_name }}" --title "権限申請 (Issue #${{ github.event.issue.number }})" --body "Issue #${{ github.event.issue.number }} からの権限申請")
           echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
         env:
-          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           
       - name: Issueにコメント
         if: steps.create-branch.outputs.has_changes == 'true'
         run: |
           gh issue comment "${{ github.event.issue.number }}" --body "## PRを作成しました ✅承認されるまでお待ちください。PR: ${{ steps.create-pr.outputs.pr_url }}"
         env:
-          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           
       - name: エラー時の処理
         if: failure()
         run: |
           gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。次の間違いが無いかを確認し、issueを新規作成してください。：✅1.issue本文が正しいcsv形式で記されているか"チーム名, ユーザー名, 終了日" ✅2. チーム名とユーザー名が正しいか✅3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
         env:
-          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
