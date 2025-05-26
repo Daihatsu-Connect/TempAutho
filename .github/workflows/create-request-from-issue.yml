@@ -4,6 +4,12 @@ on:
   issues:
     types: [opened]
 
+# GitHub Actionsのトークンに必要な権限を付与
+permissions:
+  contents: write    # リポジトリの内容を変更する権限
+  pull-requests: write  # PRを作成する権限
+  issues: write      # Issueにコメントする権限
+
 jobs:
   create-request:
     runs-on: ubuntu-latest
