@@ -52,8 +52,8 @@ jobs:
             exit 1
           fi
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}  # 検証には管理者権限が必要
+          GITHUB_TOKEN: ${{ github.token }}     # コメントにはGitHub Actionsトークンを使用
 
       - name: ブランチを作成
         id: create-branch
