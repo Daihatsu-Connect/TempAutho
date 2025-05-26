@@ -23,6 +23,32 @@ jobs:
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "新しいブランチ名: $BRANCH_NAME"
 
+      - name: Issue本文を一時ファイルに保存
+        run: |
+          echo "${{ github.event.issue.body }}" > request.csv
+      
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 必要なパッケージをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub python-dateutil
+
+      - name: 申請内容を検証
+        id: validate-request
+        run: |
+          python .github/scripts/validate_request.py
+          if [ $? -ne 0 ]; then
+            gh issue comment "${{ github.event.issue.number }}" --body "❌ 申請内容の検証に失敗しました。ログを確認してください。"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
       - name: ブランチを作成
         id: create-branch
         run: |
@@ -31,12 +57,6 @@ jobs:
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
           git checkout -b "$BRANCH_NAME"
-          
-          # 既存のrequest.csvを削除（存在する場合）
-          rm -f request.csv
-          
-          # Issue本文をrequest.csvに保存
-          echo "${{ github.event.issue.body }}" > request.csv
           
           # 変更を強制的に追加
           git add -f request.csv
@@ -60,13 +80,13 @@ jobs:
       - name: Issueにコメント
         if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "## PRを作成しました ✅承認されるまでお待ちください。PR: ${{ steps.create-pr.outputs.pr_url }}"
+          gh issue comment "${{ github.event.issue.number }}" --body "## PRを作成しました ✅\n\n承認されるまでお待ちください。\n\nPR: ${{ steps.create-pr.outputs.pr_url }}"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: エラー時の処理
         if: failure()
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。次を確認してください：1. Issue本文が正しいCSV形式で記載されているか?2. チーム名とユーザー名が正しいか?3. 終了日が正しい形式（YYYYMMDD）で記載されているか?"
+          gh issue comment "${{ github.event.issue.number }}" --body "❌ 権限申請の処理中にエラーが発生しました。\n\n以下を確認してください：\n1. Issue本文が正しいCSV形式で記載されているか\n2. チーム名とユーザー名が正しいか\n3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
