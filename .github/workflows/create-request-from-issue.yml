@@ -30,9 +30,10 @@ jobs:
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "新しいブランチ名: $BRANCH_NAME"
 
-      - name: Issue本文を一時ファイルに保存
+      - name: Issue本文を解析してCSVに変換
         run: |
-          echo "${{ github.event.issue.body }}" > request.csv
+          echo "${{ github.event.issue.body }}" | python .github/scripts/parse_issue.py > request.csv
+          cat request.csv
       
       - name: Pythonをセットアップ
         uses: actions/setup-python@v4
@@ -106,9 +107,11 @@ jobs:
         run: |
           ERROR_MSG="❌ 権限申請の処理中にエラーが発生しました。次の間違いが無いかを確認し、issueを新規作成してください。：
           
-          ✅ 1. issue本文が正しいcsv形式で記されているか「チーム名, ユーザー名, 終了日」
+          ✅ 1. Issue本文が正しい形式で記載されているか
+             - 「# 以下を編集」から「---」までの間に必要な情報が記載されているか
+             - 「付与したいチーム:」「付与するユーザ:」「期限:」の項目が記載されているか
           ✅ 2. チーム名とユーザー名が正しいか
-          ✅ 3. 終了日が正しい形式（YYYYMMDD）で記載されているか"
+          ✅ 3. 期限が正しい形式（YYYYMMDD）で記載されているか"
           
           gh issue comment "${{ github.event.issue.number }}" --body "$ERROR_MSG"
         env:
