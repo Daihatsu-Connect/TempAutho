@@ -3,6 +3,7 @@ name: 一時的な権限付与
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,8 +13,8 @@ permissions:
 jobs:
   approve-and-grant-permissions:
     runs-on: ubuntu-latest
-    # 'PR Approved'ラベルが付けられた場合のみ実行
-    if: github.event.label.name == 'PR Approved'
+    # 'PR Approved'ラベルが付けられた場合または手動実行の場合に実行
+    if: github.event.label.name == 'PR Approved' || github.event_name == 'workflow_dispatch'
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
@@ -23,6 +24,7 @@ jobs:
 
       - name: ラベル付与者の権限を確認
         id: check-permission
+        if: github.event_name == 'issues'
         run: |
           # ラベルを付けたユーザー
           LABELER="${{ github.event.sender.login }}"
@@ -95,7 +97,7 @@ jobs:
           
       - name: 関連PRを検索
         id: find-pr
-        if: steps.check-permission.outputs.has_permission == 'true'
+        if: github.event_name == 'issues' && (steps.check-permission.outputs.has_permission == 'true' || steps.check-permission.outcome == 'skipped')
         run: |
           ISSUE_NUMBER="${{ github.event.issue.number }}"
           
@@ -118,7 +120,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
       - name: PRをマージ
-        if: steps.check-permission.outputs.has_permission == 'true' && steps.find-pr.outputs.pr_number != ''
+        if: github.event_name == 'issues' && steps.find-pr.outputs.pr_number != ''
         run: |
           PR_NUMBER="${{ steps.find-pr.outputs.pr_number }}"
           
@@ -169,6 +171,7 @@ jobs:
           # mainブランチの最新の変更を取得
           git fetch origin main
           git checkout main
+          git pull origin main  # 最新の変更を取得
           
           # 台帳ファイルを更新
           cp permissions_ledger.csv permissions_ledger.csv.new
