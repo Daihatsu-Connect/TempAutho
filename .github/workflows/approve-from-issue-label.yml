@@ -1,0 +1,90 @@
+name: Issueラベルによる承認
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  approve-and-merge:
+    runs-on: ubuntu-latest
+    # 'PR Approved'ラベルが付けられた場合のみ実行
+    if: github.event.label.name == 'PR Approved'
+    steps:
+      - name: ラベル付与者の権限を確認
+        id: check-permission
+        run: |
+          # ラベルを付けたユーザー
+          LABELER="${{ github.event.sender.login }}"
+          
+          # ユーザーが特定のチームに所属しているか確認
+          TEAM_SLUG="approvers"  # 承認権限を持つチーム名
+          ORG_NAME="Daihatsu-Connect"  # 組織名
+          
+          # チームメンバーシップを確認
+          MEMBERSHIP=$(gh api "orgs/$ORG_NAME/teams/$TEAM_SLUG/memberships/$LABELER" --silent || echo "not_found")
+          
+          if [ "$MEMBERSHIP" != "not_found" ]; then
+            echo "has_permission=true" >> $GITHUB_OUTPUT
+            echo "承認権限を持つユーザーです: $LABELER"
+          else
+            echo "has_permission=false" >> $GITHUB_OUTPUT
+            echo "承認権限を持たないユーザーです: $LABELER"
+            
+            # ラベルを削除
+            gh issue remove-label "${{ github.event.issue.number }}" "PR Approved"
+            
+            # エラーメッセージをコメント
+            gh issue comment "${{ github.event.issue.number }}" --body "⚠️ 承認権限がありません。このラベルは特定のチームメンバーのみが付与できます。"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          
+      - name: リポジトリをチェックアウト
+        if: steps.check-permission.outputs.has_permission == 'true'
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.ADMIN_TOKEN }}
+          fetch-depth: 0
+          
+      - name: 関連PRを検索
+        id: find-pr
+        if: steps.check-permission.outputs.has_permission == 'true'
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          
+          # PRの本文に「Issue #XX」という形式で関連Issueが記載されているPRを検索
+          PR_INFO=$(gh pr list --search "Issue #$ISSUE_NUMBER in:body" --json number,url,title --jq '.[0]')
+          
+          if [ -n "$PR_INFO" ]; then
+            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
+            
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+            echo "関連PRを発見: #$PR_NUMBER ($PR_URL)"
+          else
+            echo "関連PRが見つかりません"
+            gh issue comment "${{ github.event.issue.number }}" --body "⚠️ このIssueに関連するPRが見つかりませんでした。"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          
+      - name: PRをマージ
+        if: steps.check-permission.outputs.has_permission == 'true' && steps.find-pr.outputs.pr_number != ''
+        run: |
+          PR_NUMBER="${{ steps.find-pr.outputs.pr_number }}"
+          
+          # PRをマージ
+          gh pr merge $PR_NUMBER --merge --delete-branch
+          
+          # Issueにコメント
+          gh issue comment "${{ github.event.issue.number }}" --body "✅ PRがマージされました。権限付与が開始されます。"
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}

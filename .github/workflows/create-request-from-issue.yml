@@ -96,7 +96,9 @@ jobs:
           
           承認されるまでお待ちください。
           
-          PR: ${{ steps.create-pr.outputs.pr_url }}"
+          PR: ${{ steps.create-pr.outputs.pr_url }}
+          
+          承認するには、このIssueに「PR Approved」ラベルを付けてください。"
           
           gh issue comment "${{ github.event.issue.number }}" --body "$SUCCESS_MSG"
         env:
