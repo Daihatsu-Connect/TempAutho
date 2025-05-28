@@ -176,14 +176,29 @@ jobs:
           # 台帳ファイルを更新
           cp permissions_ledger.csv permissions_ledger.csv.new
           git checkout main -- permissions_ledger.csv || true
+          
+          # ヘッダー行を作成
+          echo "team_name,username,end_date,status" > permissions_ledger.csv.header
+          
           if [ -f permissions_ledger.csv ]; then
-            # 既存の台帳と新しい台帳をマージ
-            cat permissions_ledger.csv permissions_ledger.csv.new | sort | uniq > permissions_ledger.csv.merged
-            mv permissions_ledger.csv.merged permissions_ledger.csv
+            # 既存の台帳からヘッダーを除外してデータ行のみを取得
+            grep -v "^team_name,username,end_date,status" permissions_ledger.csv > permissions_ledger.csv.data || true
+            # 新しい台帳からヘッダーを除外してデータ行のみを取得
+            grep -v "^team_name,username,end_date,status" permissions_ledger.csv.new > permissions_ledger.csv.new.data || true
+            
+            # データ行をマージしてソート
+            cat permissions_ledger.csv.data permissions_ledger.csv.new.data | sort | uniq > permissions_ledger.csv.merged
+            
+            # ヘッダー行とデータ行を結合
+            cat permissions_ledger.csv.header permissions_ledger.csv.merged > permissions_ledger.csv
           else
-            # 既存の台帳がない場合は新しい台帳を使用
-            mv permissions_ledger.csv.new permissions_ledger.csv
+            # 既存の台帳がない場合は、ヘッダー行と新しい台帳のデータ行を結合
+            grep -v "^team_name,username,end_date,status" permissions_ledger.csv.new > permissions_ledger.csv.new.data || true
+            cat permissions_ledger.csv.header permissions_ledger.csv.new.data > permissions_ledger.csv
           fi
+          
+          # 一時ファイルを削除
+          rm -f permissions_ledger.csv.header permissions_ledger.csv.data permissions_ledger.csv.new.data permissions_ledger.csv.merged permissions_ledger.csv.new
           
           # 変更をコミット
           git add permissions_ledger.csv
