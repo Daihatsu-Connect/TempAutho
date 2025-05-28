@@ -50,7 +50,7 @@ jobs:
         run: |
           python .github/scripts/validate_request.py
           if [ $? -ne 0 ]; then
-            ERROR_MSG="❌ 申請内容の検証に失敗しました。ログを確認してください。"
+            ERROR_MSG="❌ 申請内容の検証に失敗しました。本issueをcloseし、issueを新規作成してください。"
             gh issue comment "${{ github.event.issue.number }}" --body "$ERROR_MSG"
             exit 1
           fi
@@ -89,16 +89,39 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           
+      - name: 承認者情報を取得
+        id: get-approvers
+        if: steps.create-branch.outputs.has_changes == 'true'
+        run: |
+          # CODEOWNERSファイルからチームを抽出
+          APPROVERS=""
+          if [ -f ".github/CODEOWNERS" ]; then
+            # CODEOWNERSファイルからチーム名を抽出（@org/team-name の形式）
+            TEAMS=$(grep -o '@[^ ]*' .github/CODEOWNERS | sort | uniq | tr '\n' ' ')
+            APPROVERS="$TEAMS"
+          else
+            # デフォルトの承認者リスト
+            APPROVERS="@dmc-nyoshida"
+          fi
+          echo "approvers=$APPROVERS" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
       - name: Issueにコメント
         if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          SUCCESS_MSG="## PRを作成しました ✅
+          # 申請者のユーザー名を取得
+          REQUESTER="${{ github.event.issue.user.login }}"
           
+          # 承認者へのメンション
+          APPROVERS="${{ steps.get-approvers.outputs.approvers }}"
+          
+          SUCCESS_MSG="${APPROVERS}
+          
+          ## 権限申請を実行します。✅
           承認されるまでお待ちください。
           
-          PR: ${{ steps.create-pr.outputs.pr_url }}
-          
-          承認するには、このIssueに「PR Approved」ラベルを付けてください。"
+          承認者は、このIssueに「Approved」ラベルを付けてください。"
           
           gh issue comment "${{ github.event.issue.number }}" --body "$SUCCESS_MSG"
         env:
@@ -107,8 +130,8 @@ jobs:
       - name: エラー時の処理
         if: failure()
         run: |
-          ERROR_MSG="❌ 権限申請の処理中にエラーが発生しました。次の間違いが無いかを確認し、issueを新規作成してください。：
-          
+          ERROR_MSG="❌ 権限申請の処理中にエラーが発生しました。本issueをcloseし、issueを新規作成してください。：
+          次の間違いを確認。
           - 「# 以下を編集」から「---」までの間に必要な情報が記載されているか
           - 「付与したいチーム:」「付与するユーザ:」「期限:」の項目が記載されているか
           - チーム名とユーザー名が正しいか

@@ -13,8 +13,8 @@ permissions:
 jobs:
   approve-and-grant-permissions:
     runs-on: ubuntu-latest
-    # 'PR Approved'ラベルが付けられた場合または手動実行の場合に実行
-    if: github.event.label.name == 'PR Approved' || github.event_name == 'workflow_dispatch'
+    # 'Approved'ラベルが付けられた場合または手動実行の場合に実行
+    if: github.event.label.name == 'Approved' || github.event_name == 'workflow_dispatch'
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
@@ -68,14 +68,14 @@ jobs:
               gh api --method DELETE "/repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels/PR%20Approved"
               
               # エラーメッセージをコメント
-              gh issue comment "$ISSUE_NUMBER" --body "⚠️ 承認権限がありません。このラベルはCODEOWNERSに記載されているチームのメンバーのみが付与できます。"
+              gh issue comment "$ISSUE_NUMBER" --body "⚠️ 承認権限がありません。このラベルは特定のユーザーのみが付与できます。"
               exit 1
             fi
           else
             echo "CODEOWNERSファイルが見つかりません。デフォルトの承認者リストを使用します。"
             
             # デフォルトの承認者リスト
-            APPROVERS="dmc-tdaihatu,dmc-nyoshida"
+            APPROVERS="dmc-nyoshida"
             
             if echo "$APPROVERS" | grep -q "$LABELER"; then
               echo "has_permission=true" >> $GITHUB_OUTPUT
@@ -113,7 +113,7 @@ jobs:
             echo "関連PRを発見: #$PR_NUMBER ($PR_URL)"
           else
             echo "関連PRが見つかりません"
-            gh issue comment "$ISSUE_NUMBER" --body "⚠️ このIssueに関連するPRが見つかりませんでした。"
+            gh issue comment "$ISSUE_NUMBER" --body "❌ このIssueに関連するPRが見つかりませんでした。本IssueをCloseして再度Issueを作成してください。"
             exit 1
           fi
         env:
@@ -209,6 +209,11 @@ jobs:
         run: |
           ISSUE_NUMBER="${{ github.event.issue.number }}"
           
+          # 申請者のユーザー名を取得
+          ISSUE_INFO=$(gh issue view $ISSUE_NUMBER --json author)
+          REQUESTER=$(echo "$ISSUE_INFO" | jq -r '.author.login')
+          REQUESTER_MENTION="@$REQUESTER"
+          
           # 結果の要約を取得
           if [ -f "output_summary.txt" ]; then
             RESULT=$(cat output_summary.txt)
@@ -217,7 +222,9 @@ jobs:
           fi
           
           # Issueにコメント
-          SUCCESS_MSG="## 権限付与が完了しました ✅
+          SUCCESS_MSG="$REQUESTER_MENTION
+          
+          ## 権限付与が完了しました ✅
           
           ### 処理結果:
           \`\`\`
