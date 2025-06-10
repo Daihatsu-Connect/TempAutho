@@ -1,0 +1,86 @@
+name: チームメンバー追加
+
+on:
+  workflow_dispatch:
+    inputs:
+      csv_path:
+        description: 'CSVファイルのパス（デフォルト: team_members.csv）'
+        required: false
+        default: 'team_members.csv'
+        type: string
+
+# GitHub Actionsのトークンに必要な権限を付与
+permissions:
+  contents: write    # リポジトリの内容を変更する権限
+  id-token: write    # IDトークンを使用する権限
+
+jobs:
+  add-team-members:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.ADMIN_TOKEN }}
+          fetch-depth: 0
+
+      - name: CSVファイルの存在を確認
+        run: |
+          CSV_PATH="${{ github.event.inputs.csv_path }}"
+          if [ ! -f "$CSV_PATH" ]; then
+            echo "エラー: CSVファイル '$CSV_PATH' が見つかりません。"
+            exit 1
+          fi
+          
+          # CSVファイルの内容を表示
+          echo "CSVファイルの内容:"
+          cat "$CSV_PATH"
+      
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 必要なパッケージをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub
+
+      - name: チームにメンバーを追加
+        id: add-members
+        run: |
+          CSV_PATH="${{ github.event.inputs.csv_path }}"
+          cp "$CSV_PATH" team_members.csv
+          python .github/scripts/add_team_members.py | tee output_log.txt
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}  # 管理者権限が必要
+          
+      - name: 結果を保存
+        run: |
+          grep "^成功\\|^エラー\\|^以下のユーザーは組織に存在しない" output_log.txt > output_summary.txt || true
+          
+      - name: 結果をアーティファクトとして保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-results
+          path: |
+            output_log.txt
+            output_summary.txt
+            invalid_users.txt
+          retention-days: 90
+          
+      - name: 実行結果を表示
+        run: |
+          echo "## 処理結果"
+          echo "```"
+          cat output_summary.txt || echo "処理結果がありません"
+          echo "```"
+          
+          # 存在しないユーザーがいる場合は表示
+          if [ -f "invalid_users.txt" ]; then
+            INVALID_USERS=$(cat invalid_users.txt)
+            if [ -n "$INVALID_USERS" ]; then
+              echo "## ⚠️ 警告: 以下のユーザーは組織に存在しないため追加できませんでした"
+              echo "$INVALID_USERS" | tr ',' '\n' | sed 's/^/- /'
+            fi
+          fi
