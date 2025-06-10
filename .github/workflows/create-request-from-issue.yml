@@ -93,16 +93,40 @@ jobs:
         id: get-approvers
         if: steps.create-branch.outputs.has_changes == 'true'
         run: |
-          # CODEOWNERSファイルからチームを抽出
-          APPROVERS=""
-          if [ -f ".github/CODEOWNERS" ]; then
-            # CODEOWNERSファイルからチーム名を抽出（@org/team-name の形式）
-            TEAMS=$(grep -o '@[^ ]*' .github/CODEOWNERS | sort | uniq | tr '\n' ' ')
-            APPROVERS="$TEAMS"
+          # request.csvからチーム名を取得
+          TARGET_TEAM=$(cat request.csv | cut -d',' -f1 | tr -d ' ')
+          echo "対象チーム: $TARGET_TEAM"
+          
+          # チーム名から承認者チームを決定
+          if [[ "$TARGET_TEAM" == *"-write" ]]; then
+            # -writeで終わる場合、対応する-dev-tlチームを承認者とする
+            BASE_TEAM=${TARGET_TEAM%-write}
+            APPROVER_TEAM="$BASE_TEAM-dev-tl"
+          elif [[ "$TARGET_TEAM" == *"-dev-tl" ]]; then
+            # -dev-tlの場合、同じチームを承認者とする
+            APPROVER_TEAM="$TARGET_TEAM"
           else
-            # デフォルトの承認者リスト
-            APPROVERS="@dmc-nyoshida"
+            # その他の場合もチームをそのまま使用
+            APPROVER_TEAM="$TARGET_TEAM"
           fi
+          
+          echo "承認者チーム: $APPROVER_TEAM"
+          APPROVERS="@Daihatsu-Connect/$APPROVER_TEAM"
+          
+          # 承認者チームが存在しない場合のフォールバック
+          if ! gh api "orgs/Daihatsu-Connect/teams/$APPROVER_TEAM" &> /dev/null; then
+            echo "警告: 承認者チーム '$APPROVER_TEAM' が見つかりません。デフォルトの承認者を使用します。"
+            # CODEOWNERSファイルからチームを抽出
+            if [ -f ".github/CODEOWNERS" ]; then
+              # CODEOWNERSファイルからチーム名を抽出（@org/team-name の形式）
+              TEAMS=$(grep -o '@[^ ]*' .github/CODEOWNERS | sort | uniq | tr '\n' ' ')
+              APPROVERS="$TEAMS"
+            else
+              # デフォルトの承認者リスト
+              APPROVERS="@dmc-nyoshida"
+            fi
+          fi
+          
           echo "approvers=$APPROVERS" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
