@@ -50,7 +50,10 @@ jobs:
         id: add-members
         run: |
           CSV_PATH="${{ github.event.inputs.csv_path }}"
-          cp "$CSV_PATH" team_members.csv
+          # 入力ファイルが既にteam_members.csvの場合はコピーしない
+          if [ "$CSV_PATH" != "team_members.csv" ]; then
+            cp "$CSV_PATH" team_members.csv
+          fi
           python .github/scripts/add_team_members.py | tee output_log.txt
         env:
           GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}  # 管理者権限が必要
