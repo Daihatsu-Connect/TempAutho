@@ -85,13 +85,18 @@ jobs:
                 
                 echo "チームを確認中: $CODEOWNER_ORG/$CODEOWNER_TEAM"
                 
-                # チームメンバーシップを確認（エラーを無視）
-                MEMBERSHIP=$(gh api "orgs/$CODEOWNER_ORG/teams/$CODEOWNER_TEAM/memberships/$LABELER" 2>/dev/null || echo "not_found")
+                # チームの直接メンバー一覧を取得して表示
+                echo "チーム $CODEOWNER_ORG/$CODEOWNER_TEAM の直接メンバー一覧:"
+                CODEOWNER_MEMBERS=$(gh api "orgs/$CODEOWNER_ORG/teams/$CODEOWNER_TEAM/members" --jq '.[].login' 2>/dev/null || echo "チームが見つからないか、メンバー一覧を取得できません")
+                echo "$CODEOWNER_MEMBERS"
                 
-                if [ "$MEMBERSHIP" != "not_found" ]; then
+                # ラベル付与者が直接メンバーのリストに含まれているか確認
+                if echo "$CODEOWNER_MEMBERS" | grep -w "$LABELER" > /dev/null; then
                   HAS_PERMISSION=true
-                  echo "ユーザー $LABELER は $CODEOWNER_ORG/$CODEOWNER_TEAM のメンバーです"
+                  echo "ユーザー $LABELER は $CODEOWNER_ORG/$CODEOWNER_TEAM の直接メンバーです"
                   break
+                else
+                  echo "ユーザー $LABELER は $CODEOWNER_ORG/$CODEOWNER_TEAM の直接メンバーではありません"
                 fi
               fi
             done
@@ -119,6 +124,24 @@ jobs:
         if: github.event_name == 'issues' && (steps.check-permission.outputs.has_permission == 'true' || steps.check-permission.outcome == 'skipped')
         run: |
           ISSUE_NUMBER="${{ github.event.issue.number }}"
+          
+          # Issueの内容を取得して対象チームを抽出（元のチームを保持するため）
+          ISSUE_BODY=$(gh issue view $ISSUE_NUMBER --json body | jq -r '.body')
+          TARGET_TEAM=$(echo "$ISSUE_BODY" | grep -o '付与したいチーム:.*' | sed 's/付与したいチーム://' | tr -d ' ' | tr -d '\r')
+          echo "対象チーム（追加先）: $TARGET_TEAM"
+          
+          # request.csvを更新して元の対象チームを使用
+          if [ -f "request.csv" ]; then
+            # 現在のrequest.csvの内容を取得
+            CURRENT_REQUEST=$(cat request.csv)
+            # 最初のカンマまでの部分を対象チームに置き換え
+            NEW_REQUEST=$(echo "$CURRENT_REQUEST" | sed "s/^[^,]*/$TARGET_TEAM/")
+            # 更新したrequest.csvを書き込み
+            echo "$NEW_REQUEST" > request.csv
+            echo "request.csvを更新しました: $NEW_REQUEST"
+          else
+            echo "警告: request.csvが見つかりません"
+          fi
           
           # PRの本文に「Issue #XX」という形式で関連Issueが記載されているPRを検索
           PR_INFO=$(gh pr list --search "Issue #$ISSUE_NUMBER in:body" --json number,url,title --jq '.[0]')
