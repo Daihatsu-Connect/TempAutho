@@ -134,11 +134,34 @@ jobs:
           if [ -f "request.csv" ]; then
             # 現在のrequest.csvの内容を取得
             CURRENT_REQUEST=$(cat request.csv)
-            # 最初のカンマまでの部分を対象チームに置き換え
-            NEW_REQUEST=$(echo "$CURRENT_REQUEST" | sed "s/^[^,]*/$TARGET_TEAM/")
+            echo "現在のrequest.csv: $CURRENT_REQUEST"
+            
+            # CSVの形式を確認（カンマの数をカウント）
+            COMMA_COUNT=$(echo "$CURRENT_REQUEST" | tr -cd ',' | wc -c)
+            
+            if [ "$COMMA_COUNT" -ge 2 ]; then
+              # 正しいCSV形式の場合、最初のカンマまでの部分を対象チームに置き換え
+              NEW_REQUEST=$(echo "$CURRENT_REQUEST" | sed "s/^[^,]*/$TARGET_TEAM/")
+              # カンマの後のスペースを削除（CSVの解析問題を防ぐため）
+              NEW_REQUEST=$(echo "$NEW_REQUEST" | sed 's/, /,/g')
+              echo "更新後のrequest.csv: $NEW_REQUEST"
+            else
+              # カンマが足りない場合、Issueから必要な情報を抽出して正しい形式で作成
+              USERNAME=$(echo "$ISSUE_BODY" | grep -o '付与するユーザ:.*' | sed 's/付与するユーザ://' | tr -d ' ' | tr -d '\r')
+              END_DATE=$(echo "$ISSUE_BODY" | grep -o '期限:.*' | sed 's/期限://' | tr -d ' ' | tr -d '\r')
+              
+              if [ -n "$USERNAME" ] && [ -n "$END_DATE" ]; then
+                NEW_REQUEST="$TARGET_TEAM, $USERNAME, $END_DATE"
+                echo "CSVを再構築: $NEW_REQUEST"
+              else
+                echo "警告: Issueから必要な情報を抽出できませんでした"
+                exit 1
+              fi
+            fi
+            
             # 更新したrequest.csvを書き込み
             echo "$NEW_REQUEST" > request.csv
-            echo "request.csvを更新しました: $NEW_REQUEST"
+            echo "request.csvを更新しました"
           else
             echo "警告: request.csvが見つかりません"
           fi
