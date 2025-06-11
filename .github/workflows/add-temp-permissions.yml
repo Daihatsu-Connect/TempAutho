@@ -56,12 +56,19 @@ jobs:
           # ユーザーが承認者チームに所属しているか確認
           HAS_PERMISSION=false
           
+          # チームのメンバー一覧を取得して表示
+          echo "チーム $ORG_NAME/$APPROVER_TEAM のメンバー一覧:"
+          TEAM_MEMBERS=$(gh api "orgs/$ORG_NAME/teams/$APPROVER_TEAM/members" --jq '.[].login' 2>/dev/null || echo "チームが見つからないか、メンバー一覧を取得できません")
+          echo "$TEAM_MEMBERS"
+          
           # チームメンバーシップを確認（エラーを無視）
           MEMBERSHIP=$(gh api "orgs/$ORG_NAME/teams/$APPROVER_TEAM/memberships/$LABELER" 2>/dev/null || echo "not_found")
           
           if [ "$MEMBERSHIP" != "not_found" ]; then
             HAS_PERMISSION=true
             echo "ユーザー $LABELER は $ORG_NAME/$APPROVER_TEAM のメンバーです"
+          else
+            echo "ユーザー $LABELER は $ORG_NAME/$APPROVER_TEAM のメンバーではありません"
           fi
           
           # 承認者チームが存在しない場合や承認権限がない場合はCODEOWNERSにフォールバック
